@@ -1,0 +1,24 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = crlf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{md,yml,yaml,json,py}]
+end_of_line = lf
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+
+# 重要：build.ps1 必须保持「纯 ASCII」。
+# PowerShell 5.1 会把无 BOM 的 UTF-8 当成 GBK 读，.ps1 里一旦出现中文就解析失败。
+[*.ps1]
+charset = utf-8
+
+[*.cmd]
+end_of_line = crlf

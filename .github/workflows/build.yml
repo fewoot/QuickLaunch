@@ -1,0 +1,46 @@
+name: build
+
+# 只做一件事：确认源码在任何一台 Windows 机器上都能编译通过。
+# 不做界面测试 —— 那些测试需要真实的桌面会话，在 CI 里跑会不稳定。
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show toolchain
+        shell: powershell
+        run: |
+          Write-Host "--- dotnet ---"
+          dotnet --version
+          Write-Host "--- in-box csc ---"
+          Test-Path "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
+
+      - name: Compile
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
+
+      - name: Check outputs
+        shell: powershell
+        run: |
+          if (-not (Test-Path dist\QuickLaunch.exe)) { throw "QuickLaunch.exe was not produced" }
+          if (-not (Test-Path dist\QuickLaunchDiag.exe)) { throw "QuickLaunchDiag.exe was not produced" }
+          Get-ChildItem dist | Format-Table Name, Length
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: QuickLaunch
+          path: |
+            dist/QuickLaunch.exe
+            dist/QuickLaunchDiag.exe
+          if-no-files-found: error

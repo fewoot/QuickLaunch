@@ -1,0 +1,22 @@
+# 统一换行符，避免 Windows / Linux 来回改动
+* text=auto
+
+# 这批文件必须保持 CRLF：cmd 对 LF 的 .cmd 处理不稳定
+*.cs       text eol=crlf
+*.ps1      text eol=crlf
+*.cmd      text eol=crlf
+*.bat      text eol=crlf
+*.manifest text eol=crlf
+
+# 文档 / 配置 / 脚本用 LF（GitHub 上显示更友好）
+*.md       text eol=lf
+*.yml      text eol=lf
+*.json     text eol=lf
+*.py       text eol=lf
+
+# 二进制：不做任何转换（ico 被当文本处理会直接损坏图标）
+*.png  binary
+*.ico  binary
+*.jpg  binary
+*.exe  binary
+*.pdf  binary

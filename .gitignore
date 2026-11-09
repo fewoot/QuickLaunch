@@ -1,0 +1,33 @@
+# ---- 构建产物（不放仓库，发布时作为 Release 附件上传）----
+/dist/
+/bin/
+/obj/
+
+# ---- 运行时数据：个人配置与日志，绝对不要提交 ----
+/dist/config/
+/dist/logs/
+/logs/
+/config/
+
+# ---- 截图临时输出（Shot.exe 生成，重跑就变）。策划好的图放 docs/screenshots/ ----
+/shots/
+
+# ---- 图标生成的中间预览（.ico 才是构建要用的，contact-sheet 是文档用的）----
+/icons/concept-*.png
+
+# ---- 编辑器 / IDE ----
+.vs/
+.idea/
+*.user
+*.suo
+*.DotSettings.user
+
+# ---- Windows 杂物 ----
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# ---- 临时文件 ----
+*.tmp
+*.bak
+*.log
