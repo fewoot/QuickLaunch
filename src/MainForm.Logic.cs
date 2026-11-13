@@ -75,6 +75,7 @@ namespace QuickLaunch
         {
             Logging.Info(string.Format("界面已就绪，配置载入耗时 {0} 毫秒。", _configLoadMs));
             Logging.Info("DPI：" + DpiInfo);
+            LogElevationState();
 
             SyncConfigToSwitches();
             RebuildGroups();
@@ -83,10 +84,73 @@ namespace QuickLaunch
             LayoutHeaderButtons();
             _uiTimer.Start();
 
+            Logging.Info("配置文件：" + Helper.ConfigPath);
             Logging.Info("日志文件：" + Logging.FilePath);
             Logging.Info("启动方式：CreateProcess（原生进程创建，不经过 cmd）；提权/文件夹/网址走 ShellExecuteEx。");
             Logging.Info("用法：把快捷方式 / exe / 文件夹拖进列表 → 打勾 → 点左下角「一键启动」。");
             ShowStartupHints();
+        }
+
+        /// <summary>
+        /// 检测自己是不是以管理员身份在运行，并把这个事实和它的三个副作用讲清楚。
+        ///
+        /// 为什么值得单独提示：提权运行会同时引发三个很难联想到一起的怪现象 ——
+        ///   1. 从资源管理器拖放失效（Windows 的 UIPI 禁止低权限窗口向高权限窗口投递）
+        ///   2. 被你启动的程序继承管理员权限（Edge 会弹"现有实例以提升权限运行"，Obsidian
+        ///      之类的程序提权后，双击 .md 之类的文件关联会失败，因为普通权限的进程
+        ///      没法把文件递给高权限实例）
+        ///   3. 某些目录的读写行为和平时不一样（配置可能存不进去）
+        /// 用户在界面上完全看不出这些是同一个原因，所以这里直接写在日志最上面。
+        /// </summary>
+        private void LogElevationState()
+        {
+            try
+            {
+                var id = System.Security.Principal.WindowsIdentity.GetCurrent();
+                var principal = new System.Security.Principal.WindowsPrincipal(id);
+                bool elevated = principal.IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
+
+                if (!elevated)
+                {
+                    Logging.Info("运行身份：普通用户（推荐）。拖放、文件关联、配置写入都正常。");
+                }
+                else
+                {
+                    Logging.Warn("════════ 注意：当前以【管理员身份】运行 ════════");
+                    Logging.Warn("1. 拖放会失效：Windows 禁止从资源管理器往提权窗口里拖东西。");
+                    Logging.Warn("2. 被你启动的程序也会是管理员权限：");
+                    Logging.Warn("   · 浏览器会弹「现有实例正在以提升的权限运行」");
+                    Logging.Warn("   · 像 Obsidian 这类程序提权后，双击 .md 文件会打不开（普通权限的");
+                    Logging.Warn("     资源管理器没法把文件递给高权限实例，被 UIPI 拦住）");
+                    Logging.Warn("3. 配置/日志可能写不进 %APPDATA%。");
+                    Logging.Warn("建议：去掉快捷方式「属性 → 快捷方式 → 高级 → 以管理员身份运行」这个勾，");
+                    Logging.Warn("      程序本身不需要管理员；个别程序要提权时它会自己弹 UAC。");
+                    Logging.Warn("══════════════════════════════════════════════");
+                }
+            }
+            catch { }
+
+            // ---- 环境自检：配置目录到底能不能写 ----
+            //
+            // 这条是从一次真实的怪事里加出来的：把 exe 放在一个被安全软件/沙箱动过 ACL 的
+            // 目录里运行时，本程序存不了配置，它启动的 Obsidian / Edge 也全都起不来
+            // （子进程无权读写自己的 %APPDATA% 数据目录，初始化失败后静默退出）。
+            // 从现象上完全看不出是"目录"的问题，所以这里直接把结论写出来。
+            try
+            {
+                string dir = Helper.DataDir;
+                if (Helper.IsWritable(dir)) return;
+
+                Logging.Err("════════ 配置文件目录不可写 ════════");
+                Logging.Err("目录：" + dir);
+                Logging.Err("本程序运行在受限环境里（常见原因：exe 放在被沙箱 / 安全软件");
+                Logging.Err("改过权限的目录中）。这种环境下，它启动的程序也会继承限制，");
+                Logging.Err("表现为对象程序打不开、文件关联失效。");
+                Logging.Err("解决：把 QuickLaunch.exe 整个复制到普通目录（例如 D:\\QuickLaunch\\）");
+                Logging.Err("      再运行，不要放在带特殊权限标记的工作目录里。");
+                Logging.Err("═════════════════════════════════════");
+            }
+            catch { }
         }
 
         /// <summary>
@@ -105,6 +169,15 @@ namespace QuickLaunch
             else
             {
                 Logging.Info(string.Format("已载入你自己的 {0} 个程序（不扫描系统，全部手动添加）。", _cfg.Entries.Count));
+            }
+
+            // 如果另一个位置还留着一份旧配置，明确警告 —— 否则用户会以为"启动项自己变了"
+            string other = Helper.ConflictingConfigPath;
+            if (Helper.HasText(other))
+            {
+                Logging.Warn("⚠ 发现另一个位置的配置文件：" + other);
+                Logging.Warn("   本次使用的是：" + Helper.ConfigPath);
+                Logging.Warn("   两份不会自动合并，建议删掉用不上的那份，避免每次启动看到的列表不一样。");
             }
         }
 
@@ -1038,7 +1111,9 @@ namespace QuickLaunch
             else
             {
                 Logging.Err("配置保存失败：" + err);
-                if (notify) MessageBox.Show("保存失败：" + err, "一键启动", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                Logging.Err("   目标位置：" + Helper.ConfigPath);
+                if (notify) MessageBox.Show("保存失败：" + err + "\n\n目标位置：" + Helper.ConfigPath,
+                    "一键启动", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 

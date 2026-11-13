@@ -187,21 +187,93 @@ namespace QuickLaunch
                     return envCfg;
                 }
 
-                string dir = Path.Combine(
+                string roam = Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                     "QuickLaunch");
-                try { Directory.CreateDirectory(dir); }
+                string beside = Path.Combine(AppDir, "config");
+
+                // ---- 便携模式：exe 旁边放一个 portable.txt，就固定用 exe 同级 config ----
+                try
+                {
+                    if (File.Exists(Path.Combine(AppDir, "portable.txt")))
+                    {
+                        try { Directory.CreateDirectory(beside); } catch { }
+                        return beside;
+                    }
+                }
                 catch { }
 
-                if (IsWritable(dir)) return dir;
+                // ----------------------------------------------------------------
+                // 关键：一旦某个位置已经有配置文件，就**永远**用它。
+                //
+                // 之前的写法是「哪能写用哪」，而 IsWritable 是每次访问都重新探测的。
+                // 结果只要某一次探测失败（提权运行、杀软瞬时锁文件、目录 ACL 抖动…），
+                // 程序就会静默改用另一个 config.json —— 用户看到的就是
+                // "关掉管理员再打开，启动项全变了，仿佛换了另一套配置"。
+                // 配置文件的归属必须由"文件存在与否"决定，而不是"此刻能不能写"。
+                // ----------------------------------------------------------------
+                bool roamHas = SafeExists(Path.Combine(roam, "config.json"));
+                bool besideHas = SafeExists(Path.Combine(beside, "config.json"));
 
-                // AppData 写不了就退回 exe 同级目录，保证配置一定有地方放
-                string beside = Path.Combine(AppDir, "config");
+                if (roamHas) return roam;      // 两边都有也优先 %APPDATA%，另一份只做提示
+                if (besideHas) return beside;
+
+                // ---- 全新安装：优先 %APPDATA%，实在写不了才退到 exe 同级 ----
+                try { Directory.CreateDirectory(roam); } catch { }
+                if (IsWritable(roam)) return roam;
+
                 try { Directory.CreateDirectory(beside); } catch { }
                 if (IsWritable(beside)) return beside;
 
-                return dir;
+                return roam;
             }
+        }
+
+        /// <summary>
+        /// 另一个位置是否也存着一份配置文件（用于启动时提醒"你有两份配置"）。
+        /// 返回那份多余配置的完整路径；没有则返回空字符串。
+        /// </summary>
+        public static string ConflictingConfigPath
+        {
+            get
+            {
+                try
+                {
+                    // 便携模式用了隔离目录时不做这项检查，免得测试日志里冒无关警告
+                    if (HasText(DataDirOverride)) return "";
+                    string envCfg = null;
+                    try { envCfg = Environment.GetEnvironmentVariable("QL_CFGDIR"); } catch { }
+                    if (HasText(envCfg)) return "";
+
+                    // 便携模式（exe 旁边有 portable.txt）是**明确选择**，另一份配置不再提示
+                    try
+                    {
+                        if (File.Exists(Path.Combine(AppDir, "portable.txt"))) return "";
+                    }
+                    catch { }
+
+                    string roam = Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                        "QuickLaunch", "config.json");
+                    string beside = Path.Combine(AppDir, "config", "config.json");
+
+                    bool roamHas = SafeExists(roam);
+                    bool besideHas = SafeExists(beside);
+                    if (roamHas && besideHas) return beside;   // 当前用 roam，多余的是 beside
+
+                    string active = ConfigPath;
+                    if (SafeExists(roam) && !SamePath(active, roam)) return roam;
+                    if (SafeExists(beside) && !SamePath(active, beside)) return beside;
+                }
+                catch { }
+                return "";
+            }
+        }
+
+        private static bool SafeExists(string path)
+        {
+            try { return HasText(path) && File.Exists(path); }
+            catch { return false; }
         }
 
         /// <summary>探测目录是否真的可写（创建失败或只读都会返回 false）。</summary>
