@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -75,6 +75,7 @@ namespace QuickLaunch
             _writer.Start();
 
             Write(LogLevel.INFO, "===== QuickLaunch 启动 =====");
+            Write(LogLevel.INFO, "版本：v" + AppInfo.Version);
             Write(LogLevel.INFO, "日志文件：" + _filePath);
             Write(LogLevel.INFO, "系统：" + Environment.OSVersion.VersionString + " / CLR " + Environment.Version + " / " + (IntPtr.Size * 8) + " 位");
         }

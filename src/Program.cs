@@ -153,7 +153,7 @@ namespace QuickLaunch
                 else if (string.Equals(a, "--version", StringComparison.OrdinalIgnoreCase))
                 {
                     Logging.ConsoleMirror = true;
-                    Logging.Write(LogLevel.OK, "QuickLaunch v1.0 — 版本自检正常（日志系统已就绪）");
+                    Logging.Write(LogLevel.OK, "一键启动 QuickLaunch v" + AppInfo.Version + " — 版本自检正常（日志系统已就绪）");
                     Logging.Write(LogLevel.INFO, "日志文件：" + Logging.FilePath);
                     Logging.Shutdown();
                     Environment.Exit(0);

@@ -241,7 +241,7 @@ namespace QuickLaunch
                         new Point(logo.Right + Theme.S(10), Theme.S(12)), Theme.Tx, TextFormatFlags.NoPrefix);
 
                 using (var vf = Theme.UiFont(9.5f))
-                    TextRenderer.DrawText(g, "QuickLaunch  v1.0", vf,
+                    TextRenderer.DrawText(g, "QuickLaunch  v" + AppInfo.Version, vf,
                         new Point(logo.Right + Theme.S(86), Theme.S(15)), Theme.Tx3, TextFormatFlags.NoPrefix);
 
                 using (var p = new Pen(Theme.Line))
